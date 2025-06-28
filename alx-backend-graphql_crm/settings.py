@@ -83,7 +83,7 @@ DATABASES = {
 }
 
 GRAPHENE = {
-    'SCHEMA': 'alx_backend_graphql_crm.schema.schema',
+    'SCHEMA': 'alx-backend-graphql_crm.schema.schema',
 }
 
 # Password validation
