@@ -1,24 +1,24 @@
 import graphene
 from graphene_django import DjangoObjectType
-from .models import customer, product, order
+from .models import Customer, Product, Order
 from django.db import IntegrityError, transaction
 from datetime import datetime
 from graphql import GraphQLError
 
 class CustomerType(DjangoObjectType):
     class Meta:
-        model = customer
+        model = Customer
 
 class ProductType(DjangoObjectType):
     class Meta:
-        model = product
+        model = Product
 
 class OrderType(DjangoObjectType):
     class Meta:
-        model = order
+        model = Order
 
 # Mutation: CreateCustomer
-class createCustomer(graphene.Mutation):
+class CreateCustomer(graphene.Mutation):
     class Arguments:
         name = graphene.String(required=True)
         email = graphene.String(required=True)
@@ -28,13 +28,13 @@ class createCustomer(graphene.Mutation):
     message = graphene.String()
 
     def mutate(self, info, name, email, phone=None):
-        if customer.objects.filter(email=email).exists():
+        if Customer.objects.filter(email=email).exists():
             raise GraphQLError("Email already exists.")
-        customer = customer.objects.create(name=name, email=email, phone=phone)
-        return createCustomer(customer=customer, message="Customer created successfully")
+        customer = Customer.objects.create(name=name, email=email, phone=phone)
+        return CreateCustomer(customer=customer, message="Customer created successfully")
 
 # Mutation: BulkCreateCustomers
-class bulkCreateCustomers(graphene.Mutation):
+class BulkCreateCustomers(graphene.Mutation):
     class Arguments:
         input = graphene.List(graphene.JSONString)
 
@@ -46,14 +46,14 @@ class bulkCreateCustomers(graphene.Mutation):
         errors = []
         for item in input:
             try:
-                c = customer.objects.create(**item)
+                c = Customer.objects.create(**item)
                 customers.append(c)
             except Exception as e:
                 errors.append(f"{item.get('email') or item.get('name')}: {str(e)}")
-        return bulkCreateCustomers(customers=customers, errors=errors)
+        return BulkCreateCustomers(customers=customers, errors=errors)
 
 # Mutation: CreateProduct
-class createProduct(graphene.Mutation):
+class CreateProduct(graphene.Mutation):
     class Arguments:
         name = graphene.String(required=True)
         price = graphene.Float(required=True)
@@ -64,11 +64,11 @@ class createProduct(graphene.Mutation):
     def mutate(self, info, name, price, stock=0):
         if price <= 0 or stock < 0:
             raise GraphQLError("Invalid price or stock value")
-        product = product.objects.create(name=name, price=price, stock=stock)
-        return createProduct(product=product)
+        product = Product.objects.create(name=name, price=price, stock=stock)
+        return CreateProduct(product=product)
 
 # Mutation: CreateOrder
-class createOrder(graphene.Mutation):
+class CreateOrder(graphene.Mutation):
     class Arguments:
         customer_id = graphene.ID(required=True)
         product_ids = graphene.List(graphene.ID, required=True)
@@ -78,36 +78,36 @@ class createOrder(graphene.Mutation):
 
     def mutate(self, info, customer_id, product_ids, order_date=None):
         try:
-            customer = customer.objects.get(id=customer_id)
-            products = product.objects.filter(id__in=product_ids)
+            customer = Customer.objects.get(id=customer_id)
+            products = Product.objects.filter(id__in=product_ids)
             if not products:
                 raise GraphQLError("No valid products found.")
             total = sum([p.price for p in products])
-            order = order.objects.create(customer=customer, total_amount=total)
+            order = Order.objects.create(customer=customer, total_amount=total)
             order.products.set(products)
             if order_date:
                 order.order_date = order_date
                 order.save()
-            return createOrder(order=order)
-        except customer.DoesNotExist:
+            return CreateOrder(order=order)
+        except Customer.DoesNotExist:
             raise GraphQLError("Invalid customer ID")
 class Mutation(graphene.ObjectType):
-    create_customer = createCustomer.Field()
-    bulk_create_customers = bulkCreateCustomers.Field()
-    create_product = createProduct.Field()
-    create_order = createOrder.Field()
+    create_customer = CreateCustomer.Field()
+    bulk_create_customers = BulkCreateCustomers.Field()
+    create_product = CreateProduct.Field()
+    create_order = CreateOrder.Field()
     
 
 class Query(graphene.ObjectType):
     all_customers = graphene.List(CustomerType)
     def resolve_all_customers(self, info):
-        return customer.objects.all()
+        return Customer.objects.all()
     all_products = graphene.List(ProductType)
     def resolve_all_products(self, info):
-        return product.objects.all()
+        return Product.objects.all()
     all_orders = graphene.List(OrderType)
     def resolve_all_orders(self, info):
-        return order.objects.all()
+        return Order.objects.all()
 
 # Add this if you haven't yet
 # schema = graphene.Schema(query=Query)
